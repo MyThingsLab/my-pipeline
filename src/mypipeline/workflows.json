@@ -1,0 +1,13 @@
+[
+  {
+    "id": "example-catalog-to-bibliography",
+    "on": { "tool": "myarchivist", "kind": "catalog", "outcome": "success" },
+    "require_fields": ["isbn"],
+    "then": {
+      "repo": "my-bibliography",
+      "label": "my-bibliography",
+      "title": "bibliography: catalog isbn:{isbn}",
+      "body": "isbn:{isbn}\n\nCataloged from `{title}` by {author}."
+    }
+  }
+]
