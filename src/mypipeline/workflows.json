@@ -9,5 +9,17 @@
       "title": "bibliography: catalog isbn:{isbn}",
       "body": "isbn:{isbn}\n\nCataloged from `{title}` by {author}."
     }
+  },
+  {
+    "id": "idea-verdict-build-to-new-tool-tracking",
+    "on": { "tool": "myidea", "kind": "idea_explored", "outcome": "success" },
+    "require_fields": ["idea_issue"],
+    "require_data": { "verdict": "build" },
+    "then": {
+      "repo": "my-things-core",
+      "label": "new-tool",
+      "title": "new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
+      "body": "MyIdea's brief on MyThingsLab/my-idea#{idea_issue} recommended verdict=build.\n\nDraft a design-doc stub under `docs/tools/` per `docs/CONVENTIONS.md`'s \"Starting a new tool\" (Purpose / single Engine call / deterministic pre-work / Ledger writes / Guard & Workspace / Test plan / Dependencies), plus its `tools_manifest.json` entry."
+    }
   }
 ]
