@@ -41,6 +41,44 @@ repo, matches them against the declared workflow steps, and files a labeled
 issue in each step's target repo — deduped against an already-open issue with
 the same title.
 
+## Workflow steps
+
+Each step in `workflows.json` (`src/mypipeline/workflows.json`, the bundled
+default) declares:
+
+```json
+{
+  "id": "idea-verdict-build-to-new-tool-tracking",
+  "on": { "tool": "myidea", "kind": "idea_explored", "outcome": "success" },
+  "require_fields": ["idea_issue"],
+  "require_data": { "verdict": "build" },
+  "then": {
+    "repo": "my-things-core",
+    "label": "new-tool",
+    "title": "new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
+    "body": "..."
+  }
+}
+```
+
+- `on` — the ledger entry `(tool, kind, outcome)` this step watches for.
+- `require_fields` — entry `data` keys that must be present (and non-empty) for
+  the template to fill; missing one skips the step rather than guessing.
+- `require_data` — optional exact-value filters on entry `data` (e.g. only
+  fire when `verdict == "build"`, not `fold`/`park`/absent). A step with no
+  `require_data` fires on every entry matching `on`.
+- `then` — the target repo/label and `str.format`-style title/body templates,
+  filled from the entry's own `data`.
+
+Two steps ship today: `example-catalog-to-bibliography` (illustrative only —
+`my-archivist`'s real `catalog` ledger entry is a batch summary, not one entry
+per ISBN, so this doesn't fire against a real run yet; see the design doc's
+"Dependencies & build order") and `idea-verdict-build-to-new-tool-tracking`
+(real and wired: fulfills the "open a new-tool tracking issue" half of
+`my-idea#2`'s own proposal — drafting the actual design-doc *content* stays
+`my-idea#2`'s job, not MyPipeline's, since MyPipeline never runs another
+tool's code or opens a PR).
+
 ## Install (development)
 
 ```bash

@@ -23,6 +23,19 @@ _STEP = WorkflowStep(
     body_template="isbn:{isbn}\n\nCataloged from `{title}` by {author}.",
 )
 
+_IDEA_STEP = WorkflowStep(
+    id="idea-verdict-build-to-new-tool-tracking",
+    on_tool="myidea",
+    on_kind="idea_explored",
+    on_outcome="success",
+    require_fields=("idea_issue",),
+    require_data=(("verdict", "build"),),
+    target_repo="my-things-core",
+    label="new-tool",
+    title_template="new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
+    body_template="verdict=build on MyThingsLab/my-idea#{idea_issue}",
+)
+
 
 class _AllowPolicy:
     def evaluate(self, action: Action) -> PolicyResult:
@@ -305,3 +318,77 @@ def test_create_issue_error_is_recorded_as_failure(tmp_path: Path) -> None:
     ).run()
 
     assert results[0].handoffs[0].outcome == "failure"
+
+
+def test_idea_verdict_build_files_a_new_tool_tracking_issue(tmp_path: Path) -> None:
+    ledger = _seed_ledger(tmp_path, "my-idea")
+    ledger.record(
+        tool="myidea", kind="idea_explored", outcome="success", idea_issue=40, verdict="build"
+    )
+    fake = FakeGh(
+        {
+            ("issue", "list"): "[]",
+            ("issue", "create"): "https://github.com/o/my-things-core/issues/121\n",
+            ("issue", "edit"): "",
+        }
+    )
+
+    results = Sync(
+        repo_root=tmp_path,
+        org="o",
+        repos=["my-idea"],
+        policy=_AllowPolicy(),
+        runner=fake,
+        workflows=[_IDEA_STEP],
+    ).run()
+
+    handoff = results[0].handoffs[0]
+    assert handoff.outcome == "success"
+    assert handoff.issue == 121
+    assert handoff.target_repo == "my-things-core"
+    create_call = next(c for c in fake.calls if c[:2] == ["issue", "create"])
+    title = create_call[create_call.index("--title") + 1]
+    assert title == "new tool: draft design doc for MyThingsLab/my-idea#40"
+
+
+def test_idea_verdict_fold_or_park_is_never_filed(tmp_path: Path) -> None:
+    ledger = _seed_ledger(tmp_path, "my-idea")
+    ledger.record(
+        tool="myidea", kind="idea_explored", outcome="success", idea_issue=41, verdict="fold"
+    )
+    ledger.record(
+        tool="myidea", kind="idea_explored", outcome="success", idea_issue=42, verdict="park"
+    )
+    fake = FakeGh({("issue", "list"): "[]"})
+
+    results = Sync(
+        repo_root=tmp_path,
+        org="o",
+        repos=["my-idea"],
+        policy=_AllowPolicy(),
+        runner=fake,
+        workflows=[_IDEA_STEP],
+    ).run()
+
+    assert results[0].handoffs == ()  # neither entry matches require_data verdict=="build"
+    assert not any(c[:2] == ["issue", "create"] for c in fake.calls)
+
+
+def test_idea_deterministic_only_verdict_none_is_never_filed(tmp_path: Path) -> None:
+    # NoopEngine explorations record no verdict at all -- must not be
+    # mistaken for a "build" recommendation.
+    ledger = _seed_ledger(tmp_path, "my-idea")
+    ledger.record(tool="myidea", kind="idea_explored", outcome="success", idea_issue=38)
+    fake = FakeGh({("issue", "list"): "[]"})
+
+    results = Sync(
+        repo_root=tmp_path,
+        org="o",
+        repos=["my-idea"],
+        policy=_AllowPolicy(),
+        runner=fake,
+        workflows=[_IDEA_STEP],
+    ).run()
+
+    assert results[0].handoffs == ()
+    assert not any(c[:2] == ["issue", "create"] for c in fake.calls)

@@ -61,7 +61,58 @@ def test_fill_substitutes_entry_data() -> None:
 
 
 def test_default_workflows_load_without_error() -> None:
-    # The bundled example — illustrative only, matches no real producer's
-    # current ledger shape yet (see the module docstring/comment).
     steps = default_workflows()
-    assert len(steps) >= 1
+    ids = {s.id for s in steps}
+    # The archivist->bibliography example is illustrative only (matches no
+    # shipped producer's current ledger shape yet); the myidea step is real.
+    assert "example-catalog-to-bibliography" in ids
+    assert "idea-verdict-build-to-new-tool-tracking" in ids
+
+
+_REQUIRE_DATA_JSON = """[
+  {
+    "id": "idea-verdict-build",
+    "on": {"tool": "myidea", "kind": "idea_explored", "outcome": "success"},
+    "require_fields": ["idea_issue"],
+    "require_data": {"verdict": "build"},
+    "then": {
+      "repo": "my-things-core",
+      "label": "new-tool",
+      "title": "new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
+      "body": "verdict=build on my-idea#{idea_issue}"
+    }
+  }
+]"""
+
+
+def test_parse_reads_require_data() -> None:
+    step = parse(_REQUIRE_DATA_JSON)[0]
+    assert step.require_data == (("verdict", "build"),)
+
+
+def test_matches_respects_require_data_value() -> None:
+    step = parse(_REQUIRE_DATA_JSON)[0]
+    build = LedgerEntry(
+        tool="myidea",
+        kind="idea_explored",
+        outcome="success",
+        data={"verdict": "build", "idea_issue": 1},
+    )
+    fold = LedgerEntry(
+        tool="myidea",
+        kind="idea_explored",
+        outcome="success",
+        data={"verdict": "fold", "idea_issue": 1},
+    )
+    deterministic_only = LedgerEntry(
+        tool="myidea", kind="idea_explored", outcome="success", data={"idea_issue": 1}
+    )
+    assert matches(step, build)
+    assert not matches(step, fold)
+    assert not matches(step, deterministic_only)  # verdict is None -- never "build"
+
+
+def test_step_with_no_require_data_matches_regardless_of_data() -> None:
+    step = parse(_JSON)[0]  # the archivist example has no require_data at all
+    assert step.require_data == ()
+    assert matches(step, _entry(isbn="123", anything="else"))

@@ -18,6 +18,9 @@ class WorkflowStep:
     label: str
     title_template: str
     body_template: str
+    # (field, exact value) pairs, e.g. verdict == "build" -- empty means "no
+    # data-value filter, only tool/kind/outcome must match".
+    require_data: tuple[tuple[str, str], ...] = ()
 
 
 def parse(text: str) -> list[WorkflowStep]:
@@ -32,6 +35,7 @@ def parse(text: str) -> list[WorkflowStep]:
                 on_kind=on["kind"],
                 on_outcome=on["outcome"],
                 require_fields=tuple(obj.get("require_fields", [])),
+                require_data=tuple(obj.get("require_data", {}).items()),
                 target_repo=then["repo"],
                 label=then["label"],
                 title_template=then["title"],
@@ -42,10 +46,6 @@ def parse(text: str) -> list[WorkflowStep]:
 
 
 def default_workflows() -> list[WorkflowStep]:
-    # The bundled example ships as illustration, not a wired producer: no
-    # shipped tool's ledger entry matches it out of the box yet (see the
-    # design doc's "Dependencies & build order" — migrating a real producer
-    # like my-archivist to emit matching fields is an explicit follow-up).
     return parse(files("mypipeline").joinpath("workflows.json").read_text(encoding="utf-8"))
 
 
@@ -54,6 +54,7 @@ def matches(step: WorkflowStep, entry: LedgerEntry) -> bool:
         entry.tool == step.on_tool
         and entry.kind == step.on_kind
         and entry.outcome == step.on_outcome
+        and all(entry.data.get(field) == value for field, value in step.require_data)
     )
 
 
