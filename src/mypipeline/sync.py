@@ -9,7 +9,7 @@ from mythings.isolation import in_github_actions
 from mythings.ledger import Ledger, LedgerEntry
 from mythings.policy import Action, Decision, Policy
 
-from mypipeline.workflows import WorkflowStep, default_workflows, fill, matches, missing_fields
+from mypipeline.workflows import Node, default_workflows, fill, matches, missing_fields
 
 TOOL = "mypipeline"
 
@@ -62,14 +62,19 @@ class Sync:
         repos: list[str],
         policy: Policy | None = None,
         runner: Runner = _gh,
-        workflows: list[WorkflowStep] | None = None,
+        workflows: list[Node] | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.org = org
         self.repos = repos
         self.policy: Policy = policy or Guard()
         self.runner = runner
-        self.workflows = workflows if workflows is not None else default_workflows()
+        nodes = workflows if workflows is not None else default_workflows()
+        # Sync only files issues -- run-cli / non-ledger nodes are the driver's
+        # to tick (see mypipeline.plan), never fired here.
+        self.workflows = [
+            n for n in nodes if n.trigger.type == "ledger" and n.action.type == "file-issue"
+        ]
 
     def run(self) -> list[RepoSync]:
         return [r for repo in self.repos if (r := self._sync_repo(repo)) is not None]
@@ -87,9 +92,9 @@ class Sync:
 
         handoffs: list[Handoff] = []
         for entry in new_entries:
-            for step in self.workflows:
-                if matches(step, entry):
-                    handoffs.append(self._evaluate(step, entry))
+            for node in self.workflows:
+                if matches(node, entry):
+                    handoffs.append(self._evaluate(node, entry))
 
         filed = [h for h in handoffs if h.outcome == "success"]
         ledger.record(
@@ -105,37 +110,36 @@ class Sync:
         )
         return RepoSync(repo=repo, handoffs=tuple(handoffs))
 
-    def _evaluate(self, step: WorkflowStep, entry: LedgerEntry) -> Handoff:
-        missing = missing_fields(step, entry)
+    def _evaluate(self, node: Node, entry: LedgerEntry) -> Handoff:
+        repo, label = node.action.repo, node.action.label
+        missing = missing_fields(node, entry)
         if missing:
-            return Handoff(
-                step.id, step.target_repo, "skipped", detail=f"missing field: {missing[0]}"
-            )
+            return Handoff(node.id, repo, "skipped", detail=f"missing field: {missing[0]}")
 
         try:
-            title = fill(step.title_template, entry)
-            body = fill(step.body_template, entry)
+            title = fill(node.action.title, entry)
+            body = fill(node.action.body, entry)
         except KeyError as exc:
-            return Handoff(step.id, step.target_repo, "skipped", detail=f"missing field: {exc}")
+            return Handoff(node.id, repo, "skipped", detail=f"missing field: {exc}")
 
-        github = GitHub(f"{self.org}/{step.target_repo}", runner=self.runner)
+        github = GitHub(f"{self.org}/{repo}", runner=self.runner)
         try:
-            if title in _open_titles(github, step.label):
-                return Handoff(step.id, step.target_repo, "duplicate", detail=title)
+            if title in _open_titles(github, label):
+                return Handoff(node.id, repo, "duplicate", detail=title)
 
-            action = Action(kind="issue-create", payload={"title": title, "label": step.label})
+            action = Action(kind="issue-create", payload={"title": title, "label": label})
             gate = self.policy.evaluate(action).under(unattended=in_github_actions())
             if gate is not Decision.ALLOW:
-                return Handoff(step.id, step.target_repo, "skipped", detail="policy denied")
+                return Handoff(node.id, repo, "skipped", detail="policy denied")
 
             created = github.create_issue(title=title, body=body)
             try:
-                github.add_labels(created.number, [step.label])
+                github.add_labels(created.number, [label])
             except GitHubError:
                 # First handoff filed against a fresh target repo: the label
                 # doesn't exist yet. Create it (idempotent via --force) and retry.
-                _ensure_label(self.runner, github.repo, step.label)
-                github.add_labels(created.number, [step.label])
-            return Handoff(step.id, step.target_repo, "success", issue=created.number, detail=title)
+                _ensure_label(self.runner, github.repo, label)
+                github.add_labels(created.number, [label])
+            return Handoff(node.id, repo, "success", issue=created.number, detail=title)
         except GitHubError as exc:
-            return Handoff(step.id, step.target_repo, "failure", detail=str(exc))
+            return Handoff(node.id, repo, "failure", detail=str(exc))
