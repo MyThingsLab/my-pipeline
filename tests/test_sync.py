@@ -9,31 +9,39 @@ from mythings.policy import ALLOW, Action, Decision, PolicyResult
 from mythings.testing import FakeGh
 
 from mypipeline.sync import Sync
-from mypipeline.workflows import WorkflowStep
+from mypipeline.workflows import Action as WfAction
+from mypipeline.workflows import Node, Trigger
 
-_STEP = WorkflowStep(
+_STEP = Node(
     id="catalog-to-bibliography",
-    on_tool="myarchivist",
-    on_kind="catalog",
-    on_outcome="success",
+    trigger=Trigger(type="ledger", tool="myarchivist", kind="catalog", outcome="success"),
     require_fields=("isbn",),
-    target_repo="my-bibliography",
-    label="my-bibliography",
-    title_template="bibliography: catalog isbn:{isbn}",
-    body_template="isbn:{isbn}\n\nCataloged from `{title}` by {author}.",
+    action=WfAction(
+        type="file-issue",
+        repo="my-bibliography",
+        label="my-bibliography",
+        title="bibliography: catalog isbn:{isbn}",
+        body="isbn:{isbn}\n\nCataloged from `{title}` by {author}.",
+    ),
 )
 
-_IDEA_STEP = WorkflowStep(
+_IDEA_STEP = Node(
     id="idea-verdict-build-to-new-tool-tracking",
-    on_tool="myidea",
-    on_kind="idea_explored",
-    on_outcome="success",
+    trigger=Trigger(
+        type="ledger",
+        tool="myidea",
+        kind="idea_explored",
+        outcome="success",
+        require_data=(("verdict", "build"),),
+    ),
     require_fields=("idea_issue",),
-    require_data=(("verdict", "build"),),
-    target_repo="my-things-core",
-    label="new-tool",
-    title_template="new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
-    body_template="verdict=build on MyThingsLab/my-idea#{idea_issue}",
+    action=WfAction(
+        type="file-issue",
+        repo="my-things-core",
+        label="new-tool",
+        title="new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
+        body="verdict=build on MyThingsLab/my-idea#{idea_issue}",
+    ),
 )
 
 

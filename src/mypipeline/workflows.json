@@ -21,5 +21,72 @@
       "title": "new tool: draft design doc for MyThingsLab/my-idea#{idea_issue}",
       "body": "MyIdea's brief on MyThingsLab/my-idea#{idea_issue} recommended verdict=build.\n\nDraft a design-doc stub under `docs/tools/` per `docs/CONVENTIONS.md`'s \"Starting a new tool\" (Purpose / single Engine call / deterministic pre-work / Ledger writes / Guard & Workspace / Test plan / Dependencies), plus its `tools_manifest.json` entry."
     }
+  },
+
+  {
+    "id": "planner",
+    "trigger": { "type": "always" },
+    "action": { "type": "run-cli", "stage": "myplanner" },
+    "engine": "required"
+  },
+  {
+    "id": "dispatch",
+    "trigger": { "type": "after", "nodes": ["planner"] },
+    "action": { "type": "run-cli", "stage": "fleet-dispatch" },
+    "engine": "deferred"
+  },
+  {
+    "id": "researcher",
+    "trigger": { "type": "after", "nodes": ["dispatch"] },
+    "action": { "type": "run-cli", "stage": "myresearcher" },
+    "engine": "required"
+  },
+  {
+    "id": "tester",
+    "trigger": { "type": "after", "nodes": ["researcher"] },
+    "action": { "type": "run-cli", "stage": "mytester" },
+    "engine": "optional"
+  },
+  {
+    "id": "changelogger",
+    "trigger": { "type": "after", "nodes": ["tester"] },
+    "action": { "type": "run-cli", "stage": "mychangelogger" },
+    "engine": "none"
+  },
+  {
+    "id": "docs",
+    "trigger": { "type": "after", "nodes": ["changelogger"] },
+    "action": { "type": "run-cli", "stage": "mydocs" },
+    "engine": "optional"
+  },
+  {
+    "id": "dashboard",
+    "trigger": { "type": "after", "nodes": ["docs"] },
+    "action": { "type": "run-cli", "stage": "mydashboard" },
+    "engine": "optional"
+  },
+  {
+    "id": "projector",
+    "trigger": { "type": "after", "nodes": ["dashboard"] },
+    "action": { "type": "run-cli", "stage": "myprojector" },
+    "engine": "optional"
+  },
+  {
+    "id": "reporter",
+    "trigger": { "type": "after", "nodes": ["projector"] },
+    "action": { "type": "run-cli", "stage": "myreporter" },
+    "engine": "optional"
+  },
+  {
+    "id": "handoffs",
+    "trigger": { "type": "after", "nodes": ["reporter"] },
+    "action": { "type": "run-cli", "stage": "mypipeline-sync" },
+    "engine": "none"
+  },
+  {
+    "id": "telegram",
+    "trigger": { "type": "after", "nodes": ["handoffs"] },
+    "action": { "type": "run-cli", "stage": "mytelegrambot" },
+    "engine": "none"
   }
 ]
