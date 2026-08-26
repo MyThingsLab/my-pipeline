@@ -43,13 +43,13 @@
   },
   {
     "id": "tester",
-    "trigger": { "type": "after", "nodes": ["researcher"] },
+    "trigger": { "type": "after", "nodes": ["dispatch"] },
     "action": { "type": "run-cli", "stage": "mytester" },
     "engine": "optional"
   },
   {
     "id": "changelogger",
-    "trigger": { "type": "after", "nodes": ["tester"] },
+    "trigger": { "type": "after", "nodes": ["dispatch"] },
     "action": { "type": "run-cli", "stage": "mychangelogger" },
     "engine": "none"
   },
