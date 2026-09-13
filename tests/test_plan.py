@@ -37,6 +37,7 @@ def test_default_plan_matches_todays_cycle_order() -> None:
     # mypipeline's own handoff sync wired in before the final notify.
     stages = [i.stage for i in build_plan(default_workflows())]
     assert stages == [
+        "red-main",
         "myplanner",
         "fleet-dispatch",
         "myresearcher",
@@ -49,6 +50,15 @@ def test_default_plan_matches_todays_cycle_order() -> None:
         "mypipeline-sync",
         "mytelegrambot",
     ]
+
+
+def test_red_main_shares_wave_zero_with_the_planner() -> None:
+    # It has to land before fleet-dispatch: a worker sent at a repo whose main
+    # is already failing inherits a broken base. Nothing depends on its output,
+    # so it costs no wall-clock -- it runs beside the planner, not in front.
+    waves = build_waves(default_workflows())
+    assert {i.stage for i in waves[0]} == {"red-main", "myplanner"}
+    assert [i.stage for i in waves[1]] == ["fleet-dispatch"]
 
 
 def test_build_waves_groups_independent_nodes_sharing_a_prerequisite() -> None:

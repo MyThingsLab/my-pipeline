@@ -24,6 +24,12 @@
   },
 
   {
+    "id": "red-main",
+    "trigger": { "type": "always" },
+    "action": { "type": "run-cli", "stage": "red-main" },
+    "engine": "none"
+  },
+  {
     "id": "planner",
     "trigger": { "type": "always" },
     "action": { "type": "run-cli", "stage": "myplanner" },
