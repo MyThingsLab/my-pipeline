@@ -61,6 +61,16 @@ def test_red_main_shares_wave_zero_with_the_planner() -> None:
     assert [i.stage for i in waves[1]] == ["fleet-dispatch"]
 
 
+def test_dispatch_declares_red_main_as_a_prerequisite() -> None:
+    # Wave 0 above is not enough on its own: red-main only shares it with the
+    # planner because both happen to be `always` nodes. Give red-main any
+    # dependency later and it slides into a wave behind fleet-dispatch, with
+    # every test above still green. The edge makes the ordering a constraint
+    # the topo-sort enforces rather than a coincidence of today's triggers.
+    dispatch = next(n for n in default_workflows() if n.id == "dispatch")
+    assert set(dispatch.trigger.after) == {"planner", "red-main"}
+
+
 def test_build_waves_groups_independent_nodes_sharing_a_prerequisite() -> None:
     waves = build_waves(parse(_FAN_OUT_JSON))
     assert [[i.stage for i in wave] for wave in waves] == [["sa"], ["sb", "sc"], ["sd"]]

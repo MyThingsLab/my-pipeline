@@ -37,7 +37,7 @@
   },
   {
     "id": "dispatch",
-    "trigger": { "type": "after", "nodes": ["planner"] },
+    "trigger": { "type": "after", "nodes": ["planner", "red-main"] },
     "action": { "type": "run-cli", "stage": "fleet-dispatch" },
     "engine": "deferred"
   },
