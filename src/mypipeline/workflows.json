@@ -42,6 +42,12 @@
     "engine": "deferred"
   },
   {
+    "id": "todo",
+    "trigger": { "type": "after", "nodes": ["dispatch"] },
+    "action": { "type": "run-cli", "stage": "mytodo" },
+    "engine": "optional"
+  },
+  {
     "id": "researcher",
     "trigger": { "type": "after", "nodes": ["dispatch"] },
     "action": { "type": "run-cli", "stage": "myresearcher" },
