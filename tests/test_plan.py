@@ -40,6 +40,7 @@ def test_default_plan_matches_todays_cycle_order() -> None:
         "red-main",
         "myplanner",
         "fleet-dispatch",
+        "mytodo",
         "myresearcher",
         "mytester",
         "mychangelogger",
@@ -72,8 +73,13 @@ def test_build_waves_flattened_matches_build_plan() -> None:
 
 
 def test_default_plan_fans_out_researcher_tester_changelogger() -> None:
-    # The three no longer chain off each other -- none reads the others'
+    # The four no longer chain off each other -- none reads the others'
     # output, they only share fleet-dispatch as a prerequisite.
     waves = build_waves(default_workflows())
     fan_out_wave = next(w for w in waves if any(i.stage == "mytester" for i in w))
-    assert {i.stage for i in fan_out_wave} == {"myresearcher", "mytester", "mychangelogger"}
+    assert {i.stage for i in fan_out_wave} == {
+        "mytodo",
+        "myresearcher",
+        "mytester",
+        "mychangelogger",
+    }
